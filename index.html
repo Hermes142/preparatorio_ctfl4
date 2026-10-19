@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Quiz CTFL 4.0</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+  <section id="v-start">
+    <div class="wrap">
+      <div class="head">
+        <span class="kicker">ISTQB · Certified Tester Foundation Level</span>
+        <h1>Quiz CTFL 4.0</h1>
+        <p class="lede">Questões de múltipla escolha sobre todo o syllabus, da Introdução ao Capítulo 6. Você responde sem ver o resultado e, ao final, recebe a nota, o desempenho por capítulo e o gabarito comentado com a seção do syllabus de cada questão.</p>
+      </div>
+
+      <div class="card">
+        <div class="chhead">
+          <fieldset class="fs" style="padding:0"><legend>Escopo do quiz</legend></fieldset>
+          <span style="display:flex;gap:14px">
+            <button type="button" class="link" id="all">Todos</button>
+            <button type="button" class="link" id="none">Nenhum</button>
+          </span>
+        </div>
+        <div id="chapters"></div>
+        <div class="opts-row">
+          <div class="field">
+            <label for="qty">Quantidade de questões</label>
+            <select id="qty">
+              <option value="all">Todas as selecionadas</option>
+              <option value="40">40 questões (tamanho do exame oficial)</option>
+              <option value="20">20 questões</option>
+              <option value="10">10 questões</option>
+            </select>
+          </div>
+          <label class="check" for="shuf"><input type="checkbox" id="shuf"> Embaralhar a ordem das questões</label>
+          <p class="note">As alternativas são sempre embaralhadas. Sem a opção acima, as questões seguem a ordem do syllabus.</p>
+        </div>
+      </div>
+
+      <button type="button" class="btn primary" id="go">Começar quiz</button>
+      <p class="foot">Baseado no Syllabus CTFL v4.0 em português (BSTQB/ISTQB, 2023). As questões são material de estudo e não reproduzem questões do exame oficial.</p>
+    </div>
+  </section>
+
+  <section id="v-quiz" hidden>
+    <div class="wrap">
+      <div class="qbar">
+        <div class="qno" id="qno"></div>
+        <button type="button" class="link" id="finish-top">Finalizar</button>
+      </div>
+      <div class="track" aria-hidden="true"><i id="track"></i></div>
+
+      <div class="card pad">
+        <div class="qmeta"><span class="chip" id="qsec"></span><span class="qch" id="qch"></span></div>
+        <h2 class="qtext" id="qtext" style="margin-top:12px"></h2>
+        <div class="options" id="options" role="radiogroup" aria-label="Alternativas"></div>
+        <div class="confirm" id="confirm" hidden>
+          <span>Há <b id="cn"></b> sem resposta. Elas contam como erro.</span>
+          <button type="button" class="btn small primary" id="cyes">Finalizar mesmo assim</button>
+          <button type="button" class="btn small" id="cno">Continuar respondendo</button>
+        </div>
+        <div class="nav">
+          <button type="button" class="btn" id="prev">Anterior</button>
+          <button type="button" class="btn primary" id="next">Próxima</button>
+        </div>
+      </div>
+      <p class="note" id="hint">Atalhos: teclas A a D escolhem a alternativa; setas navegam entre as questões.</p>
+    </div>
+  </section>
+
+  <section id="v-result" hidden>
+    <div class="wrap">
+      <div class="head">
+        <span class="kicker">Resultado e gabarito</span>
+        <h1>Seu desempenho</h1>
+      </div>
+
+      <div class="card pad">
+        <div class="score"><span class="big" id="score"></span><span class="pct" id="pct"></span></div>
+        <div class="sum" id="sum"></div>
+        <p class="note" id="verdict" style="margin-top:12px"></p>
+      </div>
+
+      <div class="card pad">
+        <h2>Por capítulo</h2>
+        <div class="brk" id="brk"></div>
+      </div>
+
+      <div class="card pad">
+        <h2>Gabarito rápido</h2>
+        <p class="note" style="margin-top:4px">Número da questão e a letra da alternativa correta. Toque em uma célula para ir à explicação.</p>
+        <div class="key" id="key"></div>
+        <div class="legend"><span>✓ acertou</span><span>✗ errou</span><span>– sem resposta</span></div>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn primary" id="again">Refazer com o mesmo escopo</button>
+        <button type="button" class="btn" id="redo">Refazer só o que errei</button>
+        <button type="button" class="btn" id="home">Voltar ao início</button>
+      </div>
+
+      <h2 id="det-h">Gabarito comentado</h2>
+      <div class="tabs" role="group" aria-label="Filtrar questões">
+        <button type="button" class="tab" id="f-all" aria-pressed="true">Todas</button>
+        <button type="button" class="tab" id="f-bad" aria-pressed="false">Erradas</button>
+        <button type="button" class="tab" id="f-skip" aria-pressed="false">Sem resposta</button>
+      </div>
+      <div class="wrap" id="details"></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function(){
+'use strict';
+
+var CH=[
+  {n:0,t:"Sobre o syllabus e o exame",m:0},
+  {n:1,t:"Fundamentos de Teste",m:180},
+  {n:2,t:"Testes ao longo do Ciclo de Vida de Desenvolvimento de Software",m:130},
+  {n:3,t:"Teste Estático",m:80},
+  {n:4,t:"Análise e Modelagem de Teste",m:390},
+  {n:5,t:"Gerenciamento das Atividades de Teste",m:335},
+  {n:6,t:"Ferramentas de Teste",m:20}
+];
+
+var BANK=[];
+function A(ch,sec,q,ok,bad,exp){BANK.push({ch:ch,sec:sec,q:q,ok:ok,bad:bad,exp:exp});}
+
+/* ---------- Introdução ---------- */
+A(0,"0.5","No syllabus CTFL 4.0, quais são os três níveis cognitivos de conhecimento usados nos objetivos de aprendizagem?","K1 Lembrar, K2 Compreender, K3 Aplicar",["K1 Memorizar, K2 Analisar, K3 Avaliar","K1 Lembrar, K2 Aplicar, K3 Criar","K1 Identificar, K2 Explicar, K3 Julgar"],"Seção 0.5: K1 (Lembrar), K2 (Compreender) e K3 (Aplicar). Os detalhes e exemplos estão no Apêndice A.");
+A(0,"0.5","Em que nível cognitivo o candidato deve lembrar as palavras-chave listadas logo abaixo do título de cada capítulo?","K1 (lembrar)",["K2 (compreender)","K3 (aplicar)","Elas não são examináveis"],"Seção 0.5: todos os termos listados como palavras-chave devem ser lembrados (K1), mesmo que não apareçam explicitamente nos objetivos de aprendizagem.");
+A(0,"0.6","Qual parte do syllabus NÃO é passível de exame?","A Introdução e os Apêndices",["O Capítulo 4, Análise e Modelagem de Teste","As palavras-chave listadas no início de cada capítulo","Os objetivos de aprendizagem de nível K3"],"Seção 0.6: todas as seções do syllabus são examináveis, exceto a Introdução e os Apêndices. O conteúdo das normas e dos livros de referência também não é examinável, além do que o syllabus resume.");
+A(0,"0.11","Qual capítulo tem o maior tempo de estudo previsto no syllabus?","Capítulo 4: Análise e Modelagem de Teste (390 min)",["Capítulo 1: Fundamentos de Teste (180 min)","Capítulo 5: Gerenciamento das Atividades de Teste (335 min)","Capítulo 2: Testes ao longo do SDLC (130 min)"],"Seção 0.11: o mínimo para cursos credenciados é de 1135 minutos. O Capítulo 4 tem 390 min, o Capítulo 5 tem 335 min e o Capítulo 6 tem apenas 20 min.");
+
+/* ---------- Capítulo 1 ---------- */
+A(1,"1.1.1","Qual das alternativas NÃO é um objetivo típico de teste?","Eliminar as causas dos defeitos alterando o código",["Detectar falhas e defeitos","Criar confiança na qualidade do objeto de teste","Fornecer informações aos stakeholders para decisões informadas"],"Remover as causas de uma falha é depuração, que não é uma atividade de teste (seção 1.1.2). Os demais itens estão na lista de objetivos típicos da seção 1.1.1.");
+A(1,"1.1.2","Qual afirmação diferencia corretamente teste de depuração?","O teste dinâmico pode acionar falhas; a depuração encontra as causas dessas falhas, analisa e as elimina",["A depuração é feita sempre por testadores independentes e o teste, por desenvolvedores","O teste encontra e corrige defeitos; a depuração apenas os relata","Teste e depuração são sinônimos quando aplicados a testes estáticos"],"Seção 1.1.2: o processo típico de depuração é reproduzir a falha, diagnosticar a causa e corrigi-la. O teste de confirmação verifica depois se a correção resolveu o problema.");
+A(1,"1.1","Verificar se o sistema atende às necessidades dos usuários e de outros stakeholders em seu ambiente operacional é:","Validação",["Verificação","Depuração","Teste de confirmação"],"Seção 1.1: verificação checa se o sistema atende aos requisitos especificados; validação checa se atende às necessidades dos usuários e stakeholders no ambiente operacional.");
+A(1,"1.2.1","De que forma o teste contribui indiretamente para a qualidade dos objetos de teste?","Oferece um meio econômico de detectar defeitos, que depois são removidos pela depuração",["Corrigindo diretamente os defeitos encontrados","Substituindo a necessidade de revisões","Garantindo que o objeto de teste não tenha defeitos"],"Seção 1.2.1: o teste detecta defeitos de forma econômica; a remoção ocorre pela depuração, uma atividade que não é de teste.");
+A(1,"1.2.1","Por que se diz que os testadores oferecem aos usuários uma representação indireta no projeto de desenvolvimento?","Porque garantem que o entendimento das necessidades dos usuários seja considerado em todo o ciclo de vida, já que envolver usuários representativos costuma ser inviável por custo e falta de disponibilidade",["Porque substituem os testes de aceite que seriam feitos pelos usuários","Porque os testadores definem sozinhos os requisitos de negócio","Porque os usuários nunca podem participar de atividades de teste"],"Seção 1.2.1: a alternativa seria envolver um conjunto representativo de usuários no projeto, o que geralmente não é possível devido aos altos custos e à falta de disponibilidade de usuários adequados.");
+A(1,"1.2.2","Qual afirmação sobre QA e QC está correta?","QA é preventiva e orientada a processo; o teste é uma forma de controle de qualidade (QC)",["QA é corretiva e orientada ao produto; o teste é uma forma de QA","QA e QC são sinônimos","QC é responsabilidade de todos no projeto; QA, apenas dos testadores"],"Seção 1.2.2: QC é corretivo e orientado ao produto (o teste é uma forma de QC); QA é preventivo, orientado a processo e responsabilidade de todos no projeto.");
+A(1,"1.2.3","A pressão de tempo leva um desenvolvedor a escrever uma condição incorreta. Em produção, a execução desse código gera um cálculo errado. Qual é a sequência correta?","Erro, defeito, falha",["Defeito, erro, falha","Falha, defeito, erro","Erro, falha, defeito"],"Seção 1.2.3: seres humanos cometem erros (equívocos), que produzem defeitos no produto de trabalho; se o defeito for executado, pode ocorrer uma falha.");
+A(1,"1.2.3","Qual afirmação sobre defeitos e falhas está correta?","Alguns defeitos só causam falha em circunstâncias específicas e outros podem nunca causar",["Todo defeito executado sempre resulta em falha","Falhas só podem ser causadas por defeitos no código-fonte","Defeitos só existem no código, nunca na documentação"],"Seção 1.2.3: defeitos também aparecem em documentação e arquivos de compilação, e falhas podem ter causas ambientais, como radiação ou campo eletromagnético.");
+A(1,"1.2.3","O que é uma causa-raiz?","O motivo fundamental para a ocorrência de um problema, identificado por análise de causa-raiz",["A falha percebida pelo usuário em produção","O defeito de maior severidade registrado","O caso de teste que revelou a falha"],"Seção 1.2.3: tratar a causa-raiz (por exemplo, removendo-a) pode evitar ou reduzir a frequência de falhas e defeitos semelhantes.");
+A(1,"1.3","Após executar todos os testes planejados sem encontrar defeitos, o gerente afirma que o software está livre de defeitos. Qual princípio de teste contradiz isso?","O teste mostra a presença, não a ausência, de defeitos",["Os testes dependem do contexto","Os defeitos se agrupam","Testes antecipados economizam tempo e dinheiro"],"Princípio 1: testes podem mostrar que defeitos estão presentes, mas não provam a corretude do objeto de teste.");
+A(1,"1.3","Como lidar com o fato de que testes exaustivos são impossíveis?","Usar técnicas de teste, priorização de casos de teste e teste baseado em riscos",["Executar todos os testes em ambiente de produção","Testar apenas as partes mais fáceis de testar","Automatizar todos os casos de teste possíveis"],"Princípio 2: em vez de tentar testar tudo, concentre o esforço com técnicas (cap. 4), priorização (5.1.5) e teste baseado em riscos (5.2).");
+A(1,"1.3","Qual princípio justifica iniciar os testes estáticos e dinâmicos o mais cedo possível no SDLC?","Testes antecipados economizam tempo e dinheiro",["Os testes se degradam","Os testes dependem do contexto","Testes exaustivos são impossíveis"],"Princípio 3: defeitos removidos no início não causam defeitos subsequentes nos produtos de trabalho derivados, e o custo da qualidade é reduzido porque ocorrem menos falhas mais tarde no SDLC.");
+A(1,"1.3","Em um sistema com 20 módulos, 80% dos defeitos encontrados estavam em apenas 2 módulos. Qual princípio isso ilustra?","Os defeitos se agrupam",["Os testes se degradam","Falácia da ausência de defeitos","Testes exaustivos são impossíveis"],"Princípio 4, ilustração do Princípio de Pareto. Os agrupamentos de defeitos são entrada importante para o teste baseado em risco.");
+A(1,"1.3","Os mesmos testes são repetidos muitas vezes e deixam de encontrar defeitos novos. Qual é o princípio e como superá-lo?","Os testes se degradam; é preciso modificar testes e dados existentes ou escrever testes novos",["Os defeitos se agrupam; é preciso testar só o módulo mais defeituoso","Falácia da ausência de defeitos; é preciso aplicar mais validação","Testes antecipados economizam tempo; é preciso aplicar shift-left"],"Princípio 5. Em alguns casos, repetir os mesmos testes é benéfico, por exemplo, em testes de regressão automatizados.");
+A(1,"1.3","Todos os requisitos especificados foram testados e todos os defeitos encontrados, corrigidos, mas o sistema não atende às necessidades dos usuários. Qual princípio isso ilustra?","Falácia da ausência de defeitos",["Os defeitos se agrupam","Testes exaustivos são impossíveis","O teste mostra a presença, não a ausência, de defeitos"],"Princípio 7: além da verificação, a validação também precisa ser realizada.");
+A(1,"1.3","O teste do software de controle de uma aeronave e o de um jogo casual são conduzidos de formas muito diferentes. Qual princípio explica isso?","Os testes dependem do contexto",["Os testes se degradam","Testes antecipados economizam tempo e dinheiro","Os defeitos se agrupam"],"Princípio 6: não existe uma única abordagem universalmente aplicável; o teste é feito de forma diferente em contextos diferentes.");
+A(1,"1.4.1","Qual atividade de teste responde à pergunta “o que testar?” em termos de critérios de cobertura mensuráveis?","Análise de teste",["Modelagem de teste","Implementação de teste","Execução de teste"],"Seção 1.4.1: a análise de teste identifica funcionalidades testáveis e condições de teste; a modelagem responde “como testar?”.");
+A(1,"1.4.1","Criar procedimentos de teste, organizá-los em conjuntos de teste e preparar o ambiente de teste são tarefas de qual atividade?","Implementação de teste",["Modelagem de teste","Planejamento de teste","Conclusão de teste"],"Seção 1.4.1: a implementação inclui criar ou adquirir o testware necessário, montar procedimentos e conjuntos, priorizar no cronograma de execução e verificar o ambiente.");
+A(1,"1.4.1","Qual atividade de teste compara os resultados reais com os esperados, registra os resultados e analisa as anomalias para identificar suas causas prováveis?","Execução de teste",["Análise de teste","Modelagem de teste","Conclusão de teste"],"Seção 1.4.1: a execução pode ser manual ou automatizada. As anomalias são analisadas para identificar causas prováveis, o que permite relatá-las com base nas falhas observadas.");
+A(1,"1.4.1","Qual afirmação diferencia corretamente monitoramento e controle de teste?","O monitoramento verifica continuamente as atividades e compara o progresso real com o plano; o controle toma as ações necessárias para atingir os objetivos do teste",["O monitoramento toma ações corretivas; o controle apenas coleta métricas","O monitoramento ocorre só na conclusão do teste; o controle ocorre só no planejamento","Os dois termos são sinônimos de execução de teste"],"Seção 1.4.1 (detalhada na 5.3): o monitoramento coleta informações; o controle usa essas informações para orientar e tomar ações corretivas.");
+A(1,"1.4.2","Por que estratégia de teste, nível de cobertura e grau de automação podem variar de um projeto para outro?","Porque fatores de contexto (stakeholders, equipe, domínio de negócio, restrições do projeto, SDLC, ferramentas) influenciam o processo de teste",["Porque cada testador escolhe livremente o próprio processo","Porque o processo de teste é definido apenas pela ferramenta adotada","Porque as normas ISO proíbem a padronização do processo"],"Seção 1.4.2: o teste não é realizado de forma isolada; os fatores contextuais impactam estratégia, técnicas, automação, cobertura, documentação e relatórios.");
+A(1,"1.4.3","Qual dos itens abaixo é produto de trabalho da modelagem de teste?","Casos de teste priorizados e itens de cobertura",["Scripts de teste automatizados e conjuntos de teste","Relatórios de defeitos e registros de testes","Plano de teste e registro de riscos"],"Seção 1.4.3: a modelagem produz casos de teste (priorizados), cartas de teste, itens de cobertura e requisitos de dados e de ambiente. Scripts e conjuntos vêm da implementação; relatórios de defeitos e logs, da execução; plano e registro de riscos, do planejamento.");
+A(1,"1.4.3","Qual produto de trabalho é típico da conclusão do teste?","Relatório de conclusão do teste, com lições aprendidas e itens de ação",["Cronograma de execução de teste","Registros de testes","Condições de teste priorizadas"],"Seção 1.4.3: a conclusão produz o relatório de conclusão, itens de ação de melhoria, lições aprendidas documentadas e solicitações de alteração.");
+A(1,"1.4.4","Qual é um benefício de manter a rastreabilidade entre a base de teste e o testware?","Permite avaliar a cobertura, analisar o impacto de mudanças e facilitar auditorias",["Elimina a necessidade de casos de teste","Reduz o número de defeitos introduzidos no código","Substitui os relatórios de progresso de teste"],"Seção 1.4.4: a rastreabilidade também ajuda a atender critérios de governança de TI e a tornar os relatórios mais compreensíveis para os stakeholders.");
+A(1,"1.4.5","Qual papel se concentra principalmente em planejamento, monitoramento e controle e conclusão de testes?","Papel de gerenciamento de testes",["Papel de testador","Moderador","Autor"],"Seção 1.4.5: o testador foca análise, modelagem, implementação e execução; o gerenciamento de testes foca planejamento, monitoramento e controle e conclusão. Uma mesma pessoa pode ter os dois papéis.");
+A(1,"1.5.1","Por que as habilidades de comunicação são cruciais para os testadores?","Porque os testadores costumam ser portadores de más notícias e comunicar resultados pode ser percebido como crítica ao produto e ao seu autor",["Porque testadores precisam convencer a gerência a cortar o orçamento de desenvolvimento","Porque testadores são responsáveis por escrever a documentação do usuário","Porque a comunicação substitui a necessidade de relatórios de defeitos"],"Seção 1.5.1: informações sobre defeitos e falhas devem ser comunicadas de forma construtiva. O viés de confirmação pode dificultar a aceitação de informações que contrariam crenças atuais.");
+A(1,"1.5.1","Segundo o syllabus, para que serve o conhecimento do domínio como habilidade do testador?","Para poder entender e se comunicar com usuários finais e representantes de negócio",["Para aumentar a eficiência dos testes usando ferramentas adequadas","Para identificar defeitos difíceis de encontrar, sendo metódico","Para aumentar a eficácia dos testes com pensamento crítico e criatividade"],"Seção 1.5.1: cada habilidade tem uma finalidade. O conhecimento técnico aumenta a eficiência (por exemplo, com ferramentas) e o pensamento analítico, crítico e criativo aumenta a eficácia dos testes.");
+A(1,"1.5.2","O que caracteriza a abordagem de equipe completa?","Qualquer membro com o conhecimento e as habilidades necessárias pode executar qualquer tarefa, e todos são responsáveis pela qualidade",["Apenas os testadores respondem pela qualidade do produto","Os testadores trabalham isolados para preservar a independência","Ela substitui a necessidade de independência dos testes em qualquer contexto"],"Seção 1.5.2: prática oriunda da Extreme Programming. Nem sempre é adequada; por exemplo, contextos críticos para a segurança podem exigir alta independência.");
+A(1,"1.5.3","Qual par descreve um benefício e uma desvantagem da independência dos testes?","Benefício: testadores independentes reconhecem tipos diferentes de defeitos. Desvantagem: possível isolamento da equipe e problemas de comunicação",["Benefício: os desenvolvedores assumem mais responsabilidade pela qualidade. Desvantagem: os testadores encontram menos defeitos","Benefício: menor custo de teste. Desvantagem: testes mais rápidos","Benefício: substitui a familiaridade com o código. Desvantagem: nenhuma"],"Seção 1.5.3: a independência não substitui a familiaridade; os desenvolvedores podem encontrar muitos defeitos no próprio código. Eles também podem perder o senso de responsabilidade pela qualidade.");
+
+/* ---------- Capítulo 2 ---------- */
+A(2,"2.1.1","Qual combinação tende a ser favorecida em projetos Ágeis?","Documentação leve, ampla automação de testes de regressão e testes manuais baseados em experiência",["Documentação extensa de testes e testes manuais totalmente roteirizados","Execução de testes apenas ao final do projeto","Eliminação dos testes de regressão"],"Seção 2.1.1: o Ágil pressupõe mudanças ao longo do projeto, o que favorece documentação leve e automação para regressão; os testes manuais usam técnicas baseadas em experiência (4.4).");
+A(2,"2.1.1","Em modelos de desenvolvimento sequencial, por que testes dinâmicos normalmente não são feitos no início do SDLC?","Porque o código executável geralmente só é criado nas fases posteriores",["Porque testes dinâmicos são proibidos antes da fase de requisitos","Porque os testadores só entram no projeto depois da implementação","Porque testes dinâmicos dispensam a análise de requisitos"],"Seção 2.1.1: nas fases iniciais, os testadores participam das revisões de requisitos, da análise e da modelagem de testes.");
+A(2,"2.1.1","Em modelos de desenvolvimento iterativos e incrementais, o que a entrega frequente de incrementos exige dos testes?","Feedback rápido e testes de regressão extensivos",["Documentação de teste extensa e detalhada antes de cada iteração","Executar testes dinâmicos somente na última iteração","Abandonar os testes estáticos"],"Seção 2.1.1: em cada iteração, testes estáticos e dinâmicos podem ser realizados em todos os níveis de teste, e a entrega frequente exige feedback rápido e testes de regressão extensivos.");
+A(2,"2.1.2","Qual é uma boa prática de teste que vale para qualquer modelo de SDLC?","Para cada atividade de desenvolvimento, existe uma atividade de teste correspondente",["Todos os níveis de teste devem ter exatamente os mesmos objetivos","A análise e a modelagem de testes só começam depois que o código estiver pronto","Testadores só revisam os produtos de trabalho finais"],"Seção 2.1.2: níveis de teste têm objetivos específicos e diferentes; análise e modelagem começam durante a fase de desenvolvimento correspondente; testadores revisam rascunhos assim que disponíveis.");
+A(2,"2.1.3","Qual descrição corresponde ao TDD (Desenvolvimento Orientado por Testes)?","Os testes são escritos primeiro, depois o código é escrito para satisfazê-los e, em seguida, testes e código são refatorados",["O código é escrito primeiro e os testes são escritos depois para validá-lo","Os testes são derivados de critérios de aceite durante o desenho do sistema","O comportamento é descrito em linguagem natural no formato Dado/Quando/Então e traduzido em testes executáveis"],"Seção 2.1.3: a segunda alternativa errada descreve o ATDD e a terceira descreve o BDD.");
+A(2,"2.1.3","Qual abordagem expressa o comportamento esperado em linguagem natural simples, geralmente no formato Dado/Quando/Então, para ser traduzido em testes executáveis?","BDD (Desenvolvimento Orientado pelo Comportamento)",["TDD (Desenvolvimento Orientado por Testes)","Teste exploratório","Teste de transição de estado"],"Seção 2.1.3: TDD, ATDD e BDD seguem o princípio do teste antecipado e a abordagem shift-left, pois os testes são definidos antes do código.");
+A(2,"2.1.4","Qual é um benefício do DevOps do ponto de vista dos testes?","Feedback rápido sobre a qualidade do código e sobre o impacto das alterações no código existente",["Eliminação total da necessidade de testes manuais","Dispensa de ambientes de teste","Redução da necessidade de testes de regressão pela remoção de casos antigos"],"Seção 2.1.4: mesmo com muita automação, testes manuais, especialmente sob a perspectiva do usuário, ainda serão necessários.");
+A(2,"2.1.4","Qual é um risco ou desafio associado ao DevOps?","O pipeline de entrega precisa ser definido e as ferramentas de CI/CD, introduzidas e mantidas",["Aumento do tempo de feedback sobre a qualidade do código","Menor visibilidade das características de qualidade não funcionais","Aumento do risco de regressão por causa da automação"],"Seção 2.1.4: a automação de testes exige recursos adicionais e pode ser difícil de estabelecer e manter. Entre os benefícios estão maior visibilidade de características não funcionais e menor risco de regressão.");
+A(2,"2.1.5","Qual das opções NÃO é uma prática da abordagem shift-left?","Adiar os testes não funcionais até que o sistema completo esteja disponível",["Revisar especificações sob a perspectiva de testes","Escrever casos de teste antes de o código ser escrito","Concluir a análise estática antes do teste dinâmico"],"Seção 2.1.5: o shift-left sugere começar testes não funcionais já no nível de componente, sempre que possível. Pode exigir mais esforço no início, mas tende a economizar esforço no fim.");
+A(2,"2.1.6","Quais perguntas guiam uma retrospectiva?","O que foi bem-sucedido, o que poderia melhorar e como incorporar as melhorias e manter os sucessos",["Quem causou os defeitos, quem deve ser penalizado e como evitar novos testadores","Quantos casos de teste foram escritos, executados e automatizados","Quais requisitos devem ser removidos do backlog do produto"],"Seção 2.1.6: os participantes não são só testadores. Os resultados devem ser registrados, normalmente no relatório de conclusão, e as melhorias recomendadas devem ser acompanhadas.");
+A(2,"2.2.1","Qual nível de teste foca nas interfaces e interações entre componentes e depende de estratégias como bottom-up, top-down ou big-bang?","Teste de integração de componentes",["Teste de componente","Teste de sistema","Teste de aceite"],"Seção 2.2.1: o teste de integração de sistema, por sua vez, foca nas interfaces do sistema com outros sistemas e serviços externos.");
+A(2,"2.2.1","Qual nível de teste foca em componentes isolados, normalmente é feito por desenvolvedores em seus ambientes de desenvolvimento e costuma exigir frameworks de teste de unidade?","Teste de componente",["Teste de sistema","Teste de integração de sistema","Teste de aceite"],"Seção 2.2.1: o teste de componente (também chamado de teste de unidade) testa componentes isoladamente. O teste de sistema foca no comportamento geral e nos recursos de todo o sistema ou produto.");
+A(2,"2.2.1","Qual nível de teste foca na validação e na demonstração da prontidão para implantação, preferencialmente realizado pelos usuários previstos?","Teste de aceite",["Teste de sistema","Teste de integração de sistema","Teste de componente"],"Seção 2.2.1: as formas principais são UAT, aceite operacional, aceite contratual e normativo, teste alfa e teste beta.");
+A(2,"2.2.2","Verificar se uma função é executada dentro de um tempo especificado é exemplo de qual tipo de teste?","Teste não funcional",["Teste funcional","Teste caixa-branca","Teste de confirmação"],"Seção 2.2.2: o teste não funcional avalia “quão bem o sistema se comporta”; muitos testes não funcionais reutilizam testes funcionais verificando uma restrição, como o tempo de resposta.");
+A(2,"2.2.2","Qual das características abaixo NÃO está na lista de características não funcionais da ISO/IEC 25010 citada no syllabus?","Adequação funcional",["Eficiência de performance","Capacidade de manutenção","Portabilidade"],"Seção 2.2.2: a lista é eficiência de performance, compatibilidade, usabilidade, confiabilidade, segurança, capacidade de manutenção e portabilidade. A adequação funcional é objetivo do teste funcional.");
+A(2,"2.2.2","Qual tipo de teste deriva testes da implementação ou da estrutura interna do sistema (código, arquitetura, fluxos de dados)?","Teste caixa-branca",["Teste caixa-preta","Teste não funcional","Teste de aceite"],"Seção 2.2.2: o teste caixa-preta é baseado em especificações. Todos os tipos de teste podem ser aplicados em todos os níveis, com focos diferentes.");
+A(2,"2.2.3","Após a correção de um defeito, o testador executa novamente o caso de teste que havia falhado para verificar se a falha desapareceu. Que tipo de teste é esse?","Teste de confirmação",["Teste de regressão","Teste de manutenção","Teste de aceite"],"Seção 2.2.3: o teste de regressão confirma que nenhuma consequência adversa foi causada por uma alteração, inclusive por uma correção.");
+A(2,"2.2.3","Qual é a finalidade de fazer uma análise de impacto antes dos testes de regressão?","Otimizar a extensão do teste de regressão, mostrando quais partes do software podem ser afetadas",["Substituir o teste de confirmação","Garantir 100% de cobertura de instrução","Eliminar a necessidade de automação"],"Seção 2.2.3: conjuntos de regressão crescem a cada iteração ou versão e são fortes candidatos à automação, que deve começar no início do projeto.");
+A(2,"2.3","Quais são os gatilhos (acionadores) de teste de manutenção citados no syllabus?","Modificações, atualizações ou migrações do ambiente operacional e aposentadoria do sistema",["Somente correções de defeitos em produção","Somente novas versões planejadas","Somente mudanças de equipe"],"Seção 2.3: o escopo do teste de manutenção costuma depender do grau de risco da mudança, do tamanho do sistema existente e do tamanho da mudança.");
+
+/* ---------- Capítulo 3 ---------- */
+A(3,"3.1.1","Qual produto de trabalho NÃO é apropriado para teste estático?","Código executável de terceiros que não pode ser analisado por motivos legais",["Documento de especificação de requisitos","Código-fonte","Itens do backlog do produto"],"Seção 3.1.1: quase todos os produtos de trabalho podem ser examinados. Revisões exigem que o produto possa ser lido e compreendido; análise estática exige estrutura formal (modelos, código ou texto com sintaxe formal).");
+A(3,"3.1.2","Qual é um valor do teste estático?","Detectar defeitos nas fases iniciais do SDLC, inclusive em produtos não executáveis e em código inacessível",["Substituir completamente o teste dinâmico","Encontrar apenas defeitos de performance","Dispensar o envolvimento dos stakeholders"],"Seção 3.1.2: o teste estático também identifica defeitos que testes dinâmicos não encontram e melhora a comunicação entre stakeholders, por isso é recomendável envolver participantes variados.");
+A(3,"3.1.3","Qual é uma diferença entre testes estáticos e dinâmicos?","O teste estático encontra defeitos diretamente; o dinâmico causa falhas, das quais os defeitos são determinados por análise",["O teste estático exige a execução do software; o dinâmico não","O teste dinâmico só pode ser aplicado a documentos","Ambos encontram exatamente os mesmos tipos de defeitos"],"Seção 3.1.3: os dois se complementam. O estático mede características que não dependem de execução (ex.: capacidade de manutenção); o dinâmico mede as que dependem (ex.: eficiência de performance).");
+A(3,"3.1.3","Qual defeito é tipicamente mais fácil ou barato de encontrar por teste estático?","Variável não declarada ou código inacessível",["Gargalo de performance sob carga","Falha de usabilidade percebida em uso real","Tempo de resposta acima do especificado"],"Seção 3.1.3: também são típicos defeitos de requisitos (ambiguidades, contradições, omissões), defeitos de projeto, desvios de padrões e especificações incorretas de interface.");
+A(3,"3.1","Qual é uma vantagem da análise estática, frequentemente incorporada a frameworks de CI?","Identificar problemas antes dos testes dinâmicos, muitas vezes com menos esforço, pois não exige casos de teste",["Medir a eficiência de performance com o sistema em execução","Validar requisitos de usabilidade com usuários reais","Calcular o tempo médio até a falha"],"Seção 3.1: a análise estática costuma usar ferramentas e também avalia capacidade de manutenção e segurança. Verificadores ortográficos e de legibilidade também são exemplos.");
+A(3,"3.2.1","Qual é um benefício do feedback antecipado e frequente dos stakeholders?","Comunicação precoce de possíveis problemas de qualidade e menos retrabalho causado por mal-entendidos sobre requisitos",["Eliminar a necessidade de testes de aceite","Reduzir a quantidade de stakeholders envolvidos","Permitir ignorar mudanças de requisitos"],"Seção 3.2.1: a equipe pode se concentrar nas funcionalidades que agregam mais valor e têm maior impacto positivo sobre os riscos identificados.");
+A(3,"3.2.2","Qual é a ordem correta das atividades do processo de revisão?","Planejamento, início da revisão, revisão individual, comunicação e análise de problemas, correção e relatório",["Início da revisão, planejamento, revisão individual, correção e relatório, comunicação e análise de problemas","Planejamento, revisão individual, início da revisão, correção e relatório, comunicação e análise de problemas","Revisão individual, planejamento, início da revisão, comunicação e análise de problemas, correção e relatório"],"Seção 3.2.2 (baseada na ISO/IEC 20246). Anomalias identificadas não são necessariamente defeitos, por isso são analisadas e discutidas antes de virarem relatórios de defeitos.");
+A(3,"3.2.3","Na reunião de revisão, quem reúne as anomalias dos revisores e registra decisões e novas anomalias?","Relator (registrador)",["Moderador (facilitador)","Autor","Gerente"],"Seção 3.2.3: o moderador garante o andamento eficaz da reunião; o autor cria e corrige o produto; o gerente decide o que revisar e fornece recursos; o líder da revisão tem a responsabilidade geral.");
+A(3,"3.2.4","Qual tipo de revisão é o mais formal e tem como objetivo principal encontrar o número máximo de anomalias?","Inspeção",["Revisão informal","Walkthrough","Revisão técnica"],"Seção 3.2.4: a inspeção segue o processo genérico completo e coleta métricas; nela o autor não pode atuar como líder da revisão nem como relator.");
+A(3,"3.2.4","Qual tipo de revisão é conduzido pelo autor e pode servir para instruir revisores, obter consenso e gerar novas ideias?","Walkthrough",["Inspeção","Revisão técnica","Revisão informal"],"Seção 3.2.4: a revisão técnica é feita por revisores tecnicamente qualificados e liderada por um moderador, com foco em consenso e decisões sobre problemas técnicos. Revisões informais não seguem processo definido.");
+A(3,"3.2.5","Qual é um fator de sucesso para revisões?","Definir objetivos claros e critérios de saída mensuráveis; a avaliação dos participantes nunca deve ser um objetivo",["Revisar o produto de trabalho inteiro em uma única sessão","Usar sempre o tipo de revisão mais formal","Avaliar o desempenho individual dos revisores"],"Seção 3.2.5: outros fatores são revisões em pequenas partes, tempo suficiente para preparação, apoio da gerência, treinamento, facilitação de reuniões e integração das revisões à cultura da organização.");
+
+/* ---------- Capítulo 4 ---------- */
+A(4,"4.1","Qual técnica é baseada na análise do comportamento do objeto de teste sem referência à sua estrutura interna?","Técnica de teste caixa-preta",["Técnica de teste caixa-branca","Suposição de erro","Teste baseado em lista de verificação"],"Seção 4.1: caixa-preta (baseada em especificações), caixa-branca (baseada na estrutura) e baseada na experiência (conhecimento do testador). Casos caixa-preta continuam úteis se a implementação mudar mas o comportamento exigido permanecer.");
+A(4,"4.1","Qual afirmação sobre técnicas baseadas na experiência está correta?","São complementares às técnicas caixa-preta e caixa-branca e dependem muito das habilidades do testador",["Substituem totalmente as outras técnicas","Só podem ser usadas após o fim do desenvolvimento","Dependem exclusivamente da estrutura do código"],"Seção 4.1: elas podem detectar defeitos que as técnicas caixa-preta e caixa-branca não detectam.");
+A(4,"4.2.1","Um campo aceita idade de 18 a 65 anos (inclusive). Quantas partições de equivalência existem, considerando válidas e inválidas?","3",["2","4","48"],"Seção 4.2.1: menor que 18 (inválida), de 18 a 65 (válida) e maior que 65 (inválida). Basta um teste por partição.");
+A(4,"4.2.1","Foram identificadas 8 partições de equivalência e os casos de teste executados cobrem 6 delas. Qual é a cobertura?","75%",["60%","80%","86%"],"Seção 4.2.1: cobertura = partições executadas ÷ partições identificadas = 6 ÷ 8 = 75%.");
+A(4,"4.2.1","Um objeto de teste tem dois parâmetros: A com 3 partições e B com 5 partições. Qual é o número mínimo de casos de teste para atingir 100% de Each Choice Coverage?","5",["3","8","15"],"Seção 4.2.1: cada partição de cada conjunto deve ser exercitada pelo menos uma vez, sem considerar combinações; o mínimo é o maior número de partições de um conjunto (5).");
+A(4,"4.2.1","Qual afirmação sobre partições de equivalência está correta?","As partições não devem se sobrepor e devem ser conjuntos não vazios",["Podem se sobrepor, desde que sejam todas válidas","Só podem ser identificadas para dados de entrada","Cada partição deve conter exatamente dois valores"],"Seção 4.2.1: as partições podem ser identificadas para qualquer elemento de dados (entradas, saídas, itens de configuração, valores internos, valores de tempo, parâmetros de interface) e podem ser contínuas ou discretas, ordenadas ou não, finitas ou infinitas.");
+A(4,"4.2.2","Um campo aceita inteiros de 1 a 100. Quais valores de teste atingem 100% de cobertura no BVA de 2 valores?","0, 1, 100 e 101",["1, 2, 99 e 100","0, 1, 2, 99, 100 e 101","1 e 100"],"Seção 4.2.2: para cada valor de limite, o BVA de 2 valores usa o próprio limite e seu vizinho mais próximo na partição adjacente.");
+A(4,"4.2.2","A análise de valor de limite (BVA) pode ser aplicada a que tipo de partição?","Somente a partições ordenadas",["A qualquer partição, inclusive as não ordenadas","Somente a partições inválidas","Somente a partições discretas e finitas"],"Seção 4.2.2: os valores mínimo e máximo de uma partição são seus valores de limite, e na BVA, se dois elementos pertencem à mesma partição, todos os elementos entre eles também pertencem a ela.");
+A(4,"4.2.2","Para o mesmo campo (inteiros de 1 a 100), quantos itens de cobertura existem no BVA de 3 valores?","6",["4","3","8"],"Seção 4.2.2: são três por limite (o limite e seus dois vizinhos): 0, 1, 2 e 99, 100, 101.");
+A(4,"4.2.2","A decisão “se (x ≤ 10)” foi implementada incorretamente como “se (x = 10)”. Qual valor de teste detecta o defeito?","x = 9",["x = 10","x = 11","x = 10 e x = 11, em conjunto"],"Seção 4.2.2: os valores do BVA de 2 valores (10 e 11) dão o mesmo resultado nas duas versões. O valor 9, do BVA de 3 valores, detecta o defeito.");
+A(4,"4.2.3","Uma tabela de decisão de entrada limitada tem 3 condições booleanas e nenhuma combinação inviável. Quantas colunas (regras) tem a tabela completa e não minimizada?","8",["3","6","9"],"Seção 4.2.3: o número de regras cresce exponencialmente com o número de condições (2³ = 8).");
+A(4,"4.2.3","Uma tabela de decisão tem 4 regras viáveis: R1 (cliente fidelidade e compra acima de R$ 200: 15% de desconto), R2 (fidelidade, compra até R$ 200: 5%), R3 (não fidelidade, compra acima de R$ 200: 5%) e R4 (nenhuma das duas: 0%). Os testes executam R1, R2 e R4. Qual é a cobertura?","75%",["50%","66,7%","100%"],"Seção 4.2.3: os itens de cobertura são as colunas com combinações viáveis; 3 de 4 colunas = 75%.");
+A(4,"4.2.3","Na notação de uma tabela de decisão, o que significa “-” em uma condição?","O valor da condição é irrelevante para o resultado da ação",["A condição é falsa","A condição é inviável para aquela regra","A ação não deve ocorrer"],"Seção 4.2.3: “V” significa condição satisfeita, “F” não satisfeita, “-” irrelevante e “N/A” inviável. Para ações, “X” indica que a ação deve ocorrer.");
+A(4,"4.2.4","Um diagrama de transição de estado tem 4 estados e 6 transições válidas. Os casos de teste executam 4 transições válidas distintas. Qual é a cobertura de transições válidas (0-switch)?","66,7%",["100%","50%","75%"],"Seção 4.2.4: transições válidas executadas ÷ total de transições válidas = 4 ÷ 6 ≈ 66,7%.");
+A(4,"4.2.4","Uma tabela de estados tem 3 estados e 3 eventos (9 células), e 5 transições são válidas. Quantos itens de cobertura existem para a cobertura de todas as transições?","9",["5","4","3"],"Seção 4.2.4: todas as transições incluem as válidas (5) e as inválidas, mostradas como células vazias (4); os testes devem tentar executar as inválidas.");
+A(4,"4.2.4","Por que se recomenda testar apenas uma transição inválida em cada caso de teste?","Para evitar o mascaramento de falhas, situação em que um defeito impede a detecção de outro",["Para reduzir o número de estados do modelo","Para garantir 100% de cobertura de instrução","Porque cada caso de teste só pode ter um evento"],"Seção 4.2.4: a cobertura de todas as transições garante a de todos os estados e a de transições válidas, e deve ser requisito mínimo em software de missão e segurança crítica.");
+A(4,"4.2.4","Qual critério de cobertura de transição de estado é o mais fraco?","Cobertura de todos os estados",["Cobertura de transições válidas","Cobertura de todas as transições","Cobertura de ramificação"],"Seção 4.2.4: a cobertura de todos os estados normalmente pode ser obtida sem executar todas as transições. A de transições válidas é a mais utilizada.");
+A(4,"4.3.1","Um código tem 40 instruções executáveis e os testes exercitam 34 delas. Qual é a cobertura de instrução?","85%",["80%","75%","90%"],"Seção 4.3.1: instruções exercitadas ÷ instruções executáveis = 34 ÷ 40 = 85%.");
+A(4,"4.3.2","Qual relação existe entre cobertura de ramificação e cobertura de instrução?","100% de cobertura de ramificação implica 100% de cobertura de instrução, mas não o contrário",["100% de cobertura de instrução implica 100% de cobertura de ramificação","As duas são independentes","A cobertura de instrução é mais rigorosa que a de ramificação"],"Seção 4.3.2: a cobertura de ramificação substitui a de instrução (100% de ramificação implica 100% de instrução, mas não o contrário). Executar uma instrução nem sempre revela defeitos que dependem de dados (4.3.1), e executar uma ramificação pode não revelar defeitos que exijam a execução de um caminho específico.");
+A(4,"4.3.2","Em um código com um único “if” sem “else”, um caso de teste com condição verdadeira atinge 100% de cobertura de instrução. O que se pode afirmar sobre a cobertura de ramificação?","É menor que 100%, pois o desfecho falso da decisão ainda não foi exercitado",["É necessariamente 100%","É necessariamente 0%","Não pode ser medida em código com “if”"],"Seção 4.3.2: ramificações condicionais correspondem aos resultados verdadeiro e falso de uma decisão.");
+A(4,"4.3.3","Qual é um ponto forte e um ponto fraco das técnicas caixa-branca?","Forte: consideram toda a implementação, mesmo com especificação vaga. Fraco: podem não detectar requisitos não implementados",["Forte: independem do código. Fraco: não medem cobertura","Forte: só funcionam em testes estáticos. Fraco: exigem usuários finais","Forte: detectam todos os requisitos ausentes. Fraco: ignoram a implementação"],"Seção 4.3.3: elas também fornecem medida objetiva de cobertura e podem ser usadas em teste estático, como em execuções secas de código.");
+A(4,"4.4.1","Um testador lista erros que desenvolvedores costumam cometer e projeta testes para expor os defeitos associados. Qual técnica ele está aplicando?","Suposição de erro (ataque a falhas)",["Teste exploratório baseado em sessão","Particionamento de equivalência","Teste de tabela de decisão"],"Seção 4.4.1: ataques a falhas são uma abordagem metódica para a suposição de erro, usando listas baseadas em experiência, dados de defeitos e falhas ou conhecimento sobre por que o software falha.");
+A(4,"4.4.2","Qual descrição corresponde ao teste exploratório?","Testes são projetados, executados e avaliados simultaneamente enquanto o testador aprende sobre o objeto de teste",["Testes derivados exclusivamente de uma tabela de decisão","Testes escritos antes do código e automatizados em CI","Testes baseados em uma lista fixa de itens verificáveis automaticamente"],"Seção 4.4.2: pode ser estruturado em sessões com carta de teste e reunião de informação. É útil quando há poucas especificações ou muita pressão de tempo.");
+A(4,"4.4.3","Qual característica uma lista de verificação (checklist) de teste deve ter?","Itens formulados como pergunta, verificáveis separada e diretamente, e atualizados com base na análise de defeitos",["Itens muito gerais para serem aplicáveis a qualquer projeto","Itens que possam ser verificados automaticamente","Uma lista cada vez mais longa, sem nunca remover entradas"],"Seção 4.4.3: não devem conter itens automatizáveis, itens mais adequados como critérios de entrada ou saída, nem itens muito gerais; deve-se evitar que a lista fique muito longa.");
+A(4,"4.5","Em que as abordagens de teste baseadas em colaboração se concentram, além da detecção de defeitos?","Evitar defeitos por meio de colaboração e comunicação",["Substituir as técnicas caixa-preta","Medir cobertura de código","Eliminar o papel do testador"],"Seção 4.5: as técnicas das seções 4.2 a 4.4 têm foco na detecção de defeitos; as abordagens baseadas em colaboração também visam à prevenção.");
+A(4,"4.5.1","Quais são os três aspectos críticos (3C) de uma história de usuário?","Cartão, Conversação e Confirmação",["Contexto, Cobertura e Controle","Cliente, Código e Conclusão","Critério, Cenário e Conformidade"],"Seção 4.5.1: o cartão é o meio que descreve a história; a conversação explica como o software será usado; a confirmação são os critérios de aceite.");
+A(4,"4.5.1","O que significa INVEST para boas histórias de usuário?","Independentes, Negociáveis, Valiosas, Estimáveis, pequenas (Small) e Testáveis",["Integradas, Normalizadas, Verificadas, Estáveis, Sólidas e Totais","Iterativas, Nomeadas, Visíveis, Escaláveis, Simples e Técnicas","Independentes, Numeradas, Validadas, Específicas, Testadas e Terminadas"],"Seção 4.5.1: se um stakeholder não souber como testar a história, ela pode estar pouco clara, não refletir algo valioso ou ele pode precisar apenas de ajuda para testar.");
+A(4,"4.5.2","Quais são os dois formatos mais comuns para escrever critérios de aceite?","Orientado a cenários (ex.: Dado/Quando/Então) e orientado por regras",["Orientado a código e orientado a banco de dados","Orientado a ferramentas e orientado a defeitos","Orientado a tempo e orientado a custo"],"Seção 4.5.2: a equipe pode usar outro formato, desde que os critérios de aceite sejam bem definidos e não ambíguos.");
+A(4,"4.5.2","“Dado que o usuário está autenticado, quando ele clicar em Sair, então a sessão é encerrada.” Qual formato de critério de aceite é esse?","Orientado a cenários",["Orientado por regras","Tabela de decisão de entrada estendida","Diagrama de transição de estado"],"Seção 4.5.2: o formato Given/When/Then é usado no BDD (seção 2.1.3).");
+A(4,"4.5.3","Qual é a ordem típica do ATDD?","Workshop de especificação, criação de casos de teste (positivos, depois negativos, depois não funcionais) e automação durante a implementação",["Implementação da história, execução de testes manuais e, por fim, workshop de especificação","Casos de teste negativos, positivos e, por fim, definição dos critérios de aceite","Automação dos testes de regressão antes de qualquer discussão com o negócio"],"Seção 4.5.3: os casos de teste, criados antes da implementação, são exemplos de como o software funciona. Quando compatíveis com uma estrutura de automação, os testes de aceite tornam-se requisitos executáveis.");
+
+/* ---------- Capítulo 5 ---------- */
+A(5,"5.1.1","Qual dos itens faz parte do conteúdo típico de um plano de teste?","Registro de riscos, abordagem de teste, orçamento e cronograma",["Código-fonte do objeto de teste","Resultados reais de cada execução de teste","Relatórios de defeitos individuais"],"Seção 5.1.1: o plano também traz contexto, premissas e restrições, stakeholders e comunicação. A norma ISO/IEC/IEEE 29119-3 detalha o conteúdo.");
+A(5,"5.1.2","Qual atividade é típica do planejamento de iteração, e não do planejamento de liberação?","Dividir histórias de usuário em tarefas (especialmente de teste) e estimar o esforço de cada uma",["Definir e redefinir o backlog do produto","Determinar a abordagem e o plano de teste para toda a versão","Refinar histórias grandes em um conjunto de histórias menores"],"Seção 5.1.2: o planejamento de iteração envolve análise de risco detalhada das histórias, determinação da testabilidade e identificação dos aspectos funcionais e não funcionais.");
+A(5,"5.1.3","No desenvolvimento ágil, como são chamados os critérios de saída e os critérios de entrada de uma história de usuário?","Definição de Feito (DoD) e Definição de Pronto (DoR)",["Definição de Pronto (DoR) e Definição de Feito (DoD)","Plano de teste e cronograma de testes","Carta de teste e ficha de sessão"],"Seção 5.1.3: DoD define as métricas objetivas da equipe para um item liberável; DoR são os critérios que uma história deve cumprir para iniciar desenvolvimento ou teste.");
+A(5,"5.1.3","Qual item é um critério de ENTRADA típico?","Disponibilidade do ambiente de teste e dos dados de teste",["Nível de cobertura alcançado","Número de defeitos não resolvidos","Todos os testes planejados foram executados"],"Seção 5.1.3: a entrada inclui disponibilidade de recursos e de material de teste e nível inicial de qualidade (por exemplo, smoke tests aprovados). Os demais itens são critérios de saída.");
+A(5,"5.1.3","Qual afirmação sobre o esgotamento do tempo ou do orçamento está correta?","Pode ser um critério de saída válido se os stakeholders analisaram e aceitaram o risco de entrar em operação sem mais testes",["Nunca pode ser critério de saída","Só é válido se todos os defeitos estiverem corrigidos","Dispensa qualquer comunicação com os stakeholders"],"Seção 5.1.3: encerrar os testes nessas circunstâncias pode ser aceitável mesmo sem que os outros critérios de saída sejam atendidos.");
+A(5,"5.1.4","No projeto anterior, a proporção entre esforço de desenvolvimento e de teste foi 3:2. No novo projeto, o desenvolvimento deve ter 600 homens-hora. Qual é a estimativa de teste pela estimativa baseada em índices?","400 homens-hora",["300 homens-hora","900 homens-hora","1.000 homens-hora"],"Seção 5.1.4: 3:2 significa que o teste equivale a 2/3 do desenvolvimento; 600 × 2/3 = 400.");
+A(5,"5.1.4","Estimativas de três pontos: otimista o = 10, mais provável m = 16 e pessimista p = 34 (homens-hora). Qual é o resultado E ± SD, usando E = (o + 4m + p) / 6 e SD = (p − o) / 6?","18 ± 4",["20 ± 4","18 ± 8","16 ± 6"],"Seção 5.1.4: E = (10 + 64 + 34) / 6 = 18 e SD = (34 − 10) / 6 = 4.");
+A(5,"5.1.4","Os esforços de teste das três últimas iterações foram 30, 36 e 42 homens-hora. Usando extrapolação pela média das três últimas, qual é a estimativa para a próxima iteração?","36 homens-hora",["42 homens-hora","30 homens-hora","108 homens-hora"],"Seção 5.1.4: a extrapolação é adequada em SDLCs iterativos; média = (30 + 36 + 42) / 3 = 36.");
+A(5,"5.1.4","Qual técnica de estimativa é uma variante do Wideband Delphi e é comum no desenvolvimento ágil?","Planning Poker",["Estimativa de três pontos","Estimativa baseada em índices","Extrapolação"],"Seção 5.1.4: no Wideband Delphi, especialistas estimam isoladamente e discutem desvios até chegar a consenso; no Planning Poker usam cartões com números.");
+A(5,"5.1.5","Qual estratégia de priorização ordena os testes pelas prioridades dos requisitos definidas pelos stakeholders e rastreadas até os casos de teste?","Priorização baseada em requisitos",["Priorização baseada em risco","Priorização baseada em cobertura","Priorização por ordem alfabética dos casos de teste"],"Seção 5.1.5: a baseada em risco usa a análise de risco; a baseada em cobertura executa antes os casos que atingem maior cobertura.");
+A(5,"5.1.5","Um caso de teste de prioridade alta depende de um caso de teste de prioridade baixa. Qual deve ser executado primeiro?","O de prioridade baixa, por causa da dependência",["O de prioridade alta, sempre","O que tiver menor tempo de execução","Qualquer um, a ordem não importa"],"Seção 5.1.5: dependências podem impedir a ordem estrita por prioridade; a disponibilidade de ferramentas, ambientes e pessoas também influencia a ordem de execução.");
+A(5,"5.1.6","O que caracteriza as camadas inferiores da pirâmide de testes?","Testes pequenos, isolados e rápidos, normalmente em grande número",["Testes complexos de ponta a ponta, lentos e poucos","Testes manuais exploratórios","Testes de aceite do usuário"],"Seção 5.1.6: quanto mais alta a camada, menor a granularidade e o isolamento e maior o tempo de execução. O modelo original de Cohn tem testes de unidade, de serviço e de interface do usuário.");
+A(5,"5.1.7","Em qual quadrante de teste estão os testes exploratórios, de usabilidade e de aceite do usuário?","Q3 (voltado para negócios, avalia o produto)",["Q1 (voltado para tecnologia, apoia a equipe)","Q2 (voltado para negócios, apoia a equipe)","Q4 (voltado para tecnologia, avalia o produto)"],"Seção 5.1.7: Q1 tem testes de componente e de integração de componentes; Q2 tem testes funcionais, exemplos e testes de API; Q4 tem smoke tests e testes não funcionais (exceto usabilidade).");
+A(5,"5.2.1","Um risco tem probabilidade 0,4 e impacto 5. Qual é o nível de risco na abordagem quantitativa?","2,0",["0,9","5,4","20"],"Seção 5.2.3: na abordagem quantitativa, nível de risco = probabilidade × impacto. A abordagem qualitativa pode usar uma matriz de risco.");
+A(5,"5.2.2","Qual item é um risco de produto?","Tempo de resposta inadequado do sistema",["Falta de pessoal na equipe de teste","Falha na entrega por um fornecedor terceirizado","Estimativas imprecisas"],"Seção 5.2.2: riscos de projeto envolvem gerenciamento e controle do projeto (organização, pessoal, aspectos técnicos, fornecedores); riscos de produto envolvem características de qualidade.");
+A(5,"5.2.3","Quais atividades compõem a análise de risco do produto?","Identificação de riscos e avaliação de riscos",["Mitigação de riscos e monitoramento de riscos","Planejamento e monitoramento de riscos","Aceite e transferência de riscos"],"Seção 5.2: análise = identificação + avaliação; controle = mitigação + monitoramento. Teste baseado em riscos seleciona, prioriza e gerencia atividades com base nessa análise e nesse controle.");
+A(5,"5.2.3","Como os resultados da análise de risco do produto influenciam o teste?","Determinam escopo, níveis e tipos de teste, técnicas e cobertura, estimativa de esforço e priorização",["Definem o número de desenvolvedores do projeto","Eliminam a necessidade de testes de regressão","Substituem os critérios de saída"],"Seção 5.2.3: os resultados também ajudam a decidir se outras atividades, além de testes, podem reduzir o risco.");
+A(5,"5.2.4","Qual ação mitiga riscos de produto por meio de testes?","Aplicar nível adequado de independência e realizar revisões e análise estática",["Transferir o risco a um fornecedor","Contratar mais gerentes de projeto","Aceitar o risco sem qualquer ação"],"Seção 5.2.4: outras ações são selecionar testadores com experiência adequada, aplicar técnicas e níveis de cobertura apropriados, tipos de teste adequados e testes dinâmicos, inclusive de regressão. O monitoramento verifica a eficácia da mitigação e identifica riscos emergentes.");
+A(5,"5.3","Repriorizar os testes quando um risco identificado se torna um problema é exemplo de:","Diretriz de controle de teste",["Monitoramento de teste","Conclusão de teste","Análise de teste"],"Seção 5.3: o monitoramento coleta informações; o controle usa essas informações para orientar e tomar ações corretivas.");
+A(5,"5.3.1","Densidade de defeitos e porcentagem de detecção de defeitos pertencem a qual categoria de métricas?","Métricas de defeitos",["Métricas de cobertura","Métricas de risco","Métricas de custo"],"Seção 5.3.1: cobertura inclui cobertura de requisitos e de código; risco inclui o nível de risco residual; progresso do teste inclui casos executados e aprovados.");
+A(5,"5.3.2","Qual item é típico de um relatório de conclusão de teste e não de um relatório de progresso?","Riscos não mitigados, defeitos não corrigidos e lições aprendidas",["Testes planejados para o próximo período","Riscos novos e alterados durante o período","Progresso adiantado ou atrasado"],"Seção 5.3.2: relatórios de progresso dão suporte ao controle contínuo; relatórios de conclusão resumem um estágio específico do teste.");
+A(5,"5.3.3","Qual afirmação sobre a comunicação do status dos testes está correta?","Stakeholders diferentes precisam de informações diferentes, e uma comunicação mais formal pode ser apropriada para equipes distribuídas",["Deve sempre ser feita por relatório formal escrito","Deve ser igual para todos os públicos","Só deve ocorrer ao final do projeto"],"Seção 5.3.3: as opções incluem comunicação verbal, painéis, canais eletrônicos, documentação on-line e relatórios formais de teste.");
+A(5,"5.4","O que o gerenciamento de configuração (CM) garante para dar suporte aos testes?","Itens de configuração identificados de forma exclusiva, com controle de versão, rastreados e relacionados entre si",["Que os testes nunca falhem","Que os baselines possam ser alterados livremente","Que a documentação de teste dispense referências sem ambiguidade"],"Seção 5.4: após ser aprovado para teste, um item vira baseline e só muda por processo formal de controle de alterações; é possível voltar a um baseline anterior para reproduzir resultados.");
+A(5,"5.5","No relatório de defeitos, o que representa a severidade do defeito?","O grau de impacto nos interesses dos stakeholders ou nos requisitos",["A ordem em que o defeito deve ser corrigido","O estado atual do defeito no fluxo de trabalho","A quantidade de casos de teste que falharam"],"Seção 5.5: a prioridade de correção e o status (aberto, adiado, duplicado, aguardando correção, aguardando teste de confirmação, reaberto, fechado, rejeitado) são campos separados.");
+A(5,"5.5","Qual informação NÃO é típica de um relatório de defeitos registrado durante teste dinâmico?","Complexidade ciclomática do componente testado",["Resultados esperados e resultados reais","Descrição da falha com etapas para reprodução, logs ou capturas de tela","Identificação do objeto de teste e do ambiente de teste"],"Seção 5.5: o relatório típico traz identificador, título, data, autor, contexto, descrição da falha, resultados esperados e reais, severidade, prioridade, status e referências. Um dos objetivos é dar informação suficiente para resolver o problema.");
+A(5,"5.5","Qual é um dos objetivos típicos de um relatório de defeitos?","Dar a quem trata o defeito informações suficientes para resolver o problema, além de permitir rastrear a qualidade do produto de trabalho e gerar ideias de melhoria dos processos",["Substituir o plano de teste durante a execução","Evitar que a equipe de desenvolvimento seja notificada de anomalias","Registrar somente o código-fonte que foi corrigido"],"Seção 5.5: os três objetivos são fornecer informação suficiente para a solução, fornecer meios de rastrear a qualidade do produto de trabalho e fornecer ideias para aprimorar os processos de desenvolvimento e de teste.");
+
+/* ---------- Capítulo 6 ---------- */
+A(6,"6.1","Qual tipo de ferramenta facilita a execução de testes automatizados e a medição de cobertura?","Ferramentas de execução e cobertura de testes",["Ferramentas de colaboração","Ferramentas de gerenciamento","Ferramentas de teste estático"],"Seção 6.1: ferramentas de gerenciamento tratam SDLC, requisitos, testes, defeitos e configuração; as de teste estático apoiam revisões e análise estática; as de teste não funcional realizam testes difíceis de fazer manualmente.");
+A(6,"6.1","Segundo o syllabus, uma planilha pode ser considerada uma ferramenta de teste?","Sim, qualquer ferramenta que auxilie no teste, inclusive uma planilha",["Não, apenas ferramentas de automação","Não, planilhas servem somente à gestão financeira","Somente se tiver macros"],"Seção 6.1: a lista inclui “qualquer outra ferramenta que auxilie no teste”.");
+A(6,"6.2","Qual é um benefício potencial da automação de testes?","Economia de tempo com menos trabalho manual repetitivo e maior consistência e repetibilidade",["Eliminação da necessidade de pensamento crítico humano","Garantia de sucesso apenas pela aquisição da ferramenta","Dispensa de manutenção dos scripts de teste"],"Seção 6.2: outros benefícios são avaliação mais objetiva, acesso mais fácil a informações de teste, execução mais rápida e mais tempo para criar testes novos e mais profundos.");
+A(6,"6.2","Qual é um risco da automação de testes?","Expectativas irreais sobre a ferramenta e estimativas imprecisas do esforço para introduzi-la e manter scripts",["Maior repetibilidade dos testes","Redução dos tempos de execução","Mais tempo para os testadores criarem novos testes"],"Seção 6.2: também são riscos a dependência do fornecedor, o abandono de ferramenta de código aberto, a incompatibilidade com a plataforma e o uso de ferramenta quando o teste manual seria mais apropriado.");
+
+/* ================= aplicação ================= */
+var $=function(id){return document.getElementById(id);};
+var LET="ABCD";
+var state={items:[],i:0,scope:[]};
+
+function shuffle(a){
+  a=a.slice();
+  for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}
+  return a;
+}
+function chTitle(n){for(var k=0;k<CH.length;k++){if(CH[k].n===n)return CH[k].t;}return "";}
+function chLabel(n){return n===0?"Introdução":"Cap. "+n;}
+function pad(n,len){var s=String(n);while(s.length<len)s="0"+s;return s;}
+function fmtPct(x){return String(Math.round(x*10)/10).replace(".",",")+"%";}
+function show(v){
+  ["start","quiz","result"].forEach(function(k){$("v-"+k).hidden=(k!==v);});
+  window.scrollTo(0,0);
+}
+function el(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=txt;return e;}
+
+/* ---- início ---- */
+function selectedChapters(){
+  return Array.prototype.slice.call(document.querySelectorAll("#chapters input:checked")).map(function(x){return +x.value;});
+}
+function poolSize(){
+  var sel=selectedChapters();
+  var n=BANK.filter(function(q){return sel.indexOf(q.ch)>-1;}).length;
+  var qty=$("qty").value;
+  return qty==="all"?n:Math.min(+qty,n);
+}
+function updateCount(){
+  var n=poolSize();
+  $("go").disabled=(n===0);
+  $("go").textContent=n===0?"Selecione ao menos um capítulo":"Começar quiz ("+n+(n===1?" questão)":" questões)");
+}
+function buildStart(){
+  var box=$("chapters");
+  CH.forEach(function(c){
+    var n=BANK.filter(function(q){return q.ch===c.n;}).length;
+    var lab=el("label","chrow");
+    lab.setAttribute("for","ch"+c.n);
+    var inp=document.createElement("input");
+    inp.type="checkbox";inp.id="ch"+c.n;inp.value=c.n;inp.checked=true;
+    inp.addEventListener("change",updateCount);
+    var nm=el("span","chname");
+    nm.appendChild(el("small","",c.n===0?"Introdução":"Capítulo "+c.n));
+    nm.appendChild(el("b","",c.t));
+    var meta=el("span","chmeta",n+" questões"+(c.m?" · "+c.m+" min":""));
+    lab.appendChild(inp);lab.appendChild(nm);lab.appendChild(meta);
+    box.appendChild(lab);
+  });
+  updateCount();
+}
+function setAll(v){
+  Array.prototype.forEach.call(document.querySelectorAll("#chapters input"),function(x){x.checked=v;});
+  updateCount();
+}
+
+function makeItem(q){
+  var opts=shuffle([q.ok].concat(q.bad).map(function(t,k){return {t:t,ok:k===0};}));
+  return {q:q,opts:opts,sel:null};
+}
+function startQuiz(){
+  var sel=selectedChapters();
+  var pool=[];
+  BANK.forEach(function(q,idx){if(sel.indexOf(q.ch)>-1)pool.push({q:q,idx:idx});});
+  if(!pool.length)return;
+  state.scope=sel;
+  var qty=$("qty").value;
+  var n=qty==="all"?pool.length:Math.min(+qty,pool.length);
+  pool=shuffle(pool).slice(0,n);
+  if(!$("shuf").checked)pool.sort(function(a,b){return a.idx-b.idx;});
+  state.items=pool.map(function(o){return makeItem(o.q);});
+  state.i=0;
+  openQuiz();
+}
+function openQuiz(){
+  $("confirm").hidden=true;
+  show("quiz");
+  renderQ();
+}
+
+/* ---- quiz ---- */
+function answered(){return state.items.filter(function(x){return x.sel!==null;}).length;}
+function renderQ(){
+  var total=state.items.length,it=state.items[state.i],q=it.q,len=String(total).length;
+  $("qno").innerHTML="";
+  $("qno").appendChild(document.createTextNode(pad(state.i+1,len)));
+  var sp=el("span","", " / "+pad(total,len)+"  ·  "+answered()+" respondidas");
+  $("qno").appendChild(sp);
+  $("track").style.width=((state.i+1)/total*100)+"%";
+  $("qsec").textContent="§"+q.sec;
+  $("qch").textContent=chLabel(q.ch)+" · "+chTitle(q.ch);
+  $("qtext").textContent=q.q;
+  var box=$("options");box.innerHTML="";
+  it.opts.forEach(function(o,k){
+    var b=el("button","opt");
+    b.type="button";b.setAttribute("role","radio");
+    b.setAttribute("aria-checked",it.sel===k?"true":"false");
+    b.appendChild(el("span","lt",LET.charAt(k)));
+    b.appendChild(el("span","tx",o.t));
+    b.addEventListener("click",function(){choose(k);});
+    box.appendChild(b);
+  });
+  $("prev").disabled=(state.i===0);
+  $("next").textContent=(state.i===total-1)?"Finalizar":"Próxima";
+}
+function choose(k){
+  state.items[state.i].sel=k;
+  $("confirm").hidden=true;
+  renderQ();
+}
+function go(d){
+  var ni=state.i+d;
+  if(ni<0)return;
+  if(ni>=state.items.length){tryFinish();return;}
+  state.i=ni;$("confirm").hidden=true;renderQ();
+  window.scrollTo(0,0);
+}
+function tryFinish(){
+  var blank=state.items.length-answered();
+  if(blank>0){$("cn").textContent=blank+(blank===1?" questão":" questões");$("confirm").hidden=false;}
+  else results();
+}
+
+/* ---- resultado ---- */
+function status(x){return x.sel===null?"skip":(x.opts[x.sel].ok?"ok":"bad");}
+function correctLetter(x){for(var k=0;k<x.opts.length;k++){if(x.opts[k].ok)return LET.charAt(k);}return "";}
+var filter="all";
+function results(){
+  var it=state.items,ok=0,blank=0;
+  it.forEach(function(x){var s=status(x);if(s==="ok")ok++;else if(s==="skip")blank++;});
+  var bad=it.length-ok-blank,pct=ok/it.length*100;
+  $("score").textContent=ok+" / "+it.length;
+  $("pct").textContent=fmtPct(pct);
+  var sum=$("sum");sum.innerHTML="";
+  sum.appendChild(el("span","pill ok","✓ "+ok+" acertos"));
+  sum.appendChild(el("span","pill bad","✗ "+bad+" erros"));
+  sum.appendChild(el("span","pill skip","– "+blank+" sem resposta"));
+  $("verdict").textContent=pct>=65
+    ? "Acima de 65%, que costuma ser a referência de aprovação no exame oficial. Confira o gabarito para fechar as lacunas."
+    : "Abaixo de 65%, que costuma ser a referência de aprovação no exame oficial. Use o gabarito comentado para revisar as seções indicadas.";
+
+  var brk=$("brk");brk.innerHTML="";
+  CH.forEach(function(c){
+    var arr=it.filter(function(x){return x.q.ch===c.n;});
+    if(!arr.length)return;
+    var k=arr.filter(function(x){return status(x)==="ok";}).length;
+    var row=el("div","brk-row");
+    row.appendChild(el("span","nm",chLabel(c.n)+" · "+c.t));
+    row.appendChild(el("span","vl",k+"/"+arr.length+" · "+fmtPct(k/arr.length*100)));
+    var bar=el("div","bar");var fill=document.createElement("i");fill.style.width=(k/arr.length*100)+"%";bar.appendChild(fill);
+    row.appendChild(bar);brk.appendChild(row);
+  });
+
+  var key=$("key");key.innerHTML="";
+  it.forEach(function(x,idx){
+    var s=status(x);
+    var b=el("button","kc "+s);
+    b.type="button";
+    b.setAttribute("aria-label","Questão "+(idx+1)+", resposta correta "+correctLetter(x));
+    b.appendChild(el("small","",String(idx+1)));
+    b.appendChild(el("b","",correctLetter(x)));
+    b.appendChild(el("i","",s==="ok"?"✓":(s==="bad"?"✗":"–")));
+    b.addEventListener("click",function(){
+      filter="all";syncTabs();renderDetails();
+      var t=$("rv"+idx);if(t)t.scrollIntoView({block:"start"});
+    });
+    key.appendChild(b);
+  });
+
+  $("redo").disabled=(bad+blank===0);
+  filter="all";syncTabs();renderDetails();
+  show("result");
+}
+function syncTabs(){
+  ["all","bad","skip"].forEach(function(f){$("f-"+f).setAttribute("aria-pressed",filter===f?"true":"false");});
+}
+function renderDetails(){
+  var box=$("details");box.innerHTML="";
+  var shown=0;
+  state.items.forEach(function(x,idx){
+    var s=status(x);
+    if(filter!=="all"&&s!==filter)return;
+    shown++;
+    var a=el("article","card rv");a.id="rv"+idx;
+    var head=el("div","rv-head");
+    head.appendChild(el("span","chip","§"+x.q.sec));
+    head.appendChild(el("span","qch",chLabel(x.q.ch)));
+    head.appendChild(el("span","st "+s,s==="ok"?"✓ ACERTOU":(s==="bad"?"✗ ERROU":"– SEM RESPOSTA")));
+    a.appendChild(head);
+    var h=el("h3");h.appendChild(el("span","n",(idx+1)+"."));h.appendChild(document.createTextNode(x.q.q));
+    a.appendChild(h);
+    var ol=el("ol","ro");ol.style.listStyle="none";
+    x.opts.forEach(function(o,k){
+      var li=document.createElement("li");
+      if(o.ok)li.className="right";
+      else if(x.sel===k)li.className="mine";
+      li.appendChild(el("span","lt",LET.charAt(k)));
+      var tx=el("span","",o.t);
+      if(o.ok)tx.appendChild(el("span","tag","Gabarito"));
+      else if(x.sel===k)tx.appendChild(el("span","tag","Sua resposta"));
+      li.appendChild(tx);ol.appendChild(li);
+    });
+    a.appendChild(ol);
+    var p=el("p","exp");p.appendChild(el("b","","Por quê"));p.appendChild(document.createTextNode(x.q.exp));
+    a.appendChild(p);
+    box.appendChild(a);
+  });
+  if(!shown){box.appendChild(el("div","card empty",filter==="bad"?"Nenhuma questão errada. Bom trabalho.":"Nenhuma questão sem resposta."));}
+}
+
+/* ---- eventos ---- */
+$("all").addEventListener("click",function(){setAll(true);});
+$("none").addEventListener("click",function(){setAll(false);});
+$("qty").addEventListener("change",updateCount);
+$("go").addEventListener("click",startQuiz);
+$("prev").addEventListener("click",function(){go(-1);});
+$("next").addEventListener("click",function(){go(1);});
+$("finish-top").addEventListener("click",tryFinish);
+$("cyes").addEventListener("click",results);
+$("cno").addEventListener("click",function(){$("confirm").hidden=true;});
+$("f-all").addEventListener("click",function(){filter="all";syncTabs();renderDetails();});
+$("f-bad").addEventListener("click",function(){filter="bad";syncTabs();renderDetails();});
+$("f-skip").addEventListener("click",function(){filter="skip";syncTabs();renderDetails();});
+$("again").addEventListener("click",function(){
+  Array.prototype.forEach.call(document.querySelectorAll("#chapters input"),function(x){x.checked=state.scope.indexOf(+x.value)>-1;});
+  updateCount();startQuiz();
+});
+$("redo").addEventListener("click",function(){
+  var rest=state.items.filter(function(x){return status(x)!=="ok";}).map(function(x){return makeItem(x.q);});
+  if(!rest.length)return;
+  state.items=rest;state.i=0;openQuiz();
+});
+$("home").addEventListener("click",function(){updateCount();show("start");});
+document.addEventListener("keydown",function(e){
+  if($("v-quiz").hidden||e.ctrlKey||e.metaKey||e.altKey)return;
+  var k=e.key.toLowerCase(),idx=LET.toLowerCase().indexOf(k);
+  if(k.length===1&&idx>-1&&idx<state.items[state.i].opts.length){choose(idx);}
+  else if(e.key==="ArrowRight"){go(1);}
+  else if(e.key==="ArrowLeft"){go(-1);}
+});
+
+buildStart();
+window.__CTFL={count:function(){var c={};BANK.forEach(function(q){c[q.ch]=(c[q.ch]||0)+1;});return {total:BANK.length,porCapitulo:c};},bank:BANK};
+})();
+</script>
+</body>
+</html>
